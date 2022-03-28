@@ -99,6 +99,7 @@ class CommandServe(Command):
 
     def shutdown(self, signum=None, _frame=None):
         """Shut down the server that is running detached."""
+        self.httpd.shutdown()
         if self.dns_sd:
             self.dns_sd.Reset()
         if os.path.exists(self.serve_pidfile):
@@ -127,9 +128,9 @@ class CommandServe(Command):
                 ipv6 = False
                 OurHTTP = HTTPServer
 
-            httpd = OurHTTP((options['address'], options['port']),
+            self.httpd = OurHTTP((options['address'], options['port']),
                             OurHTTPRequestHandler)
-            sa = httpd.socket.getsockname()
+            sa = self.httpd.socket.getsockname()
             if ipv6:
                 server_url = "http://[{0}]:{1}/".format(*sa)
             else:
@@ -149,7 +150,7 @@ class CommandServe(Command):
                     pid = os.fork()
                     if pid == 0:
                         signal.signal(signal.SIGTERM, self.shutdown)
-                        httpd.serve_forever()
+                        self.httpd.serve_forever()
                     else:
                         with open(self.serve_pidfile, 'w') as fh:
                             fh.write('{0}\n'.format(pid))
@@ -164,7 +165,7 @@ class CommandServe(Command):
                 try:
                     self.dns_sd = dns_sd(options['port'], (options['ipv6'] or '::' in options['address']))
                     signal.signal(signal.SIGTERM, self.shutdown)
-                    httpd.serve_forever()
+                    self.httpd.serve_forever()
                 except KeyboardInterrupt:
                     self.shutdown()
                     return 130
